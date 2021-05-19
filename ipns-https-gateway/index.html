@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ipfs/0.54.4/index.min.js" 
+        integrity="sha512-6GHE5kFKM1y+tmjSWrTCF13qsIqV9hDYYwrZ9iu/7wnoY4qvq/u7qSVKN4iDk0xeI7pLv6h3nBRp64aIYya8KA==" 
+        crossorigin="anonymous"></script>
+    <meta charset="UTF-8"/>
+    <title>XRP Ledger NFT Browser Demo</title>
+    <style>
+      .content {
+        border: 1px solid black;
+        padding: 10px;
+        margin: 5px 0;
+        word-wrap: break-word;
+        font-style: normal;
+        font-size: inherit;
+      }
+      #ledgerIndex {
+          font-size: large;
+      }
+      #indexdata {
+        padding-left: 5px;
+        display: none
+      }
+      body {
+          width:800px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Search the XRP ledger for NFTs</h1>
+    <div id="ledgerIndex">XRPL Index Data<br/></div><br/>
+    <div><button id="GetData" style="display: none">Get Indexed Data</button></div>
+    <hr/>
+    <div id="indexdata">
+        <div id="response">Response data</div>
+        <div class="content" id="indexresp"></div>
+    </div>
+  </body>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        document.getElementById('GetData').setAttribute('style', 'display: inline')
+        document.getElementById("GetData").addEventListener('click', getNFTWallets);
+
+        // Fetch latest NFT data
+        var httpRequest;
+        function getNFTWallets() {
+            httpRequest = new XMLHttpRequest();
+            document.getElementById('indexdata').setAttribute('style', 'display: inline')
+            document.getElementById('indexresp').innerHTML = "<img src='spin.gif'/>";
+        
+            if (!httpRequest) {
+                document.getElementById('indexresp').innerText = "Hmm, something didn't work :-( ";
+                return false;
+            }
+            httpRequest.onreadystatechange = displayHTTPData;
+            httpRequest.open('GET', 'https://index.xmpl.cloud/xnft.json');
+            httpRequest.send();
+        }
+        
+        async function displayHTTPData() {
+            if (httpRequest.readyState === XMLHttpRequest.DONE) {
+                if (httpRequest.status === 200) {
+                    nftd = JSON.parse(httpRequest.responseText);
+                    
+                    //Update the index value on top of page
+                    document.getElementById('ledgerIndex').innerText = `XRPL Index Data, Showing Ledger ${nftd.index} Records`
+
+                    //Display the wallets and decoded data
+                    let outputWalletHTML = ""
+                    let recordCount = nftd.records.length;
+                    document.getElementById('response').innerHTML = `Response data showing ${recordCount} NFT wallets`
+
+                    for await (const obj of Object.entries(nftd.records)) {
+                        let data = obj[1]
+                        Object.keys(data).forEach(wallet=>{
+                            let decodedWallet = hex_to_ascii(data[wallet])
+                            //Get IPFS addressing
+                            let ipfsAddress = decodedWallet.split("\n").filter((e)=>{return e.startsWith('ipfs')}).join("").replace("ipfs:", "");
+
+                            outputWalletHTML += `
+                                <b>Wallet</b>: <a href="https://testnet.xrpl.org/accounts/${wallet}" target="_blank" rel="noopener noreferrer">${wallet}</a><br/>
+                                <hr/>
+                                ${decodedWallet.split("\n").map((e)=>{return `${e}<br/>`}).join("")}
+                                <a href="http://xmpl.mypinata.cloud/ipfs/${ipfsAddress}" target="_blank" rel="noopener noreferrer">View with NON IPFS Browser</a><br/>
+                                <a href="ipfs://${ipfsAddress}" target="_blank" rel="noopener noreferrer">View with IPFS Enabled Browser</a><br/>
+                                <br/><br/>
+                            `
+                        })
+                    }
+                    document.getElementById('indexresp').innerHTML = outputWalletHTML;
+                } else {
+                    document.getElementById('indexresp').innerText = "Oops, something broke :-("
+                }
+            }
+        }
+        //Converstion tool from HEX to ASCII
+        function hex_to_ascii(str0){
+            var hex  = str0.toString().toLowerCase();
+            var str = '';
+            for (var n = 0; n < hex.length; n += 2) {
+                str += String.fromCharCode(parseInt(hex.substr(n, 2), 16));
+            }
+            return str;
+        }
+    })
+</script>
+</html>
